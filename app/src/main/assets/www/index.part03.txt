@@ -1,0 +1,233 @@
+tional_v3';
+
+  function nativeSchedule(epochMs, mode) {
+    try {
+      if (window.AndroidBridge && AndroidBridge.scheduleAlarm) {
+        AndroidBridge.scheduleAlarm(epochMs, mode || 'focus');
+      }
+    } catch (e) {}
+  }
+
+  function nativeCancel() {
+    try {
+      if (window.AndroidBridge && AndroidBridge.cancelAlarm) {
+        AndroidBridge.cancelAlarm();
+      }
+    } catch (e) {}
+  }
+
+
+  const DEFAULTS = {
+    focusMinutes: 50,
+    breakMinutes: 10,
+    longBreakMinutes: 20,
+    focusesBeforeLongBreak: 3,
+    totalSessionDots: 4,
+    mode: 'focus',
+    focusNumber: 1,
+    running: false,
+    remainingMs: 50 * 60 * 1000,
+    endAt: null
+  };
+
+  let state = loadState();
+  let ticker = null;
+  let audioContext = null;
+
+  const $ = id => document.getElementById(id);
+  const widget = $('widget');
+  const timer = $('timer');
+  const temperature = $('temperature');
+  const gaugeSegments = [...document.querySelectorAll('.gauge-seg')];
+  const coreGlow = $('coreGlow');
+  const progressEl = $('progress');
+  const sessionDots = $('sessionDots');
+
+  function loadState() {
+    try {
+      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      return {...DEFAULTS, ...stored};
+    } catch {
+      return {...DEFAULTS};
+    }
+  }
+
+  function saveState() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+  }
+
+  function duration(mode = state.mode) {
+    if (mode === 'focus') return state.focusMinutes * 60_000;
+    if (mode === 'break') return state.breakMinutes * 60_000;
+    return state.longBreakMinutes * 60_000;
+  }
+
+  function fraction() {
+    return Math.max(0, Math.min(1, 1 - state.remainingMs / duration()));
+  }
+
+  function formatTime(ms) {
+    const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+    const mm = Math.floor(totalSeconds / 60);
+    const ss = totalSeconds % 60;
+    return String(mm).padStart(2, '0') + ':' + String(ss).padStart(2, '0');
+  }
+
+  function sessionNumber() {
+    return ((state.focusNumber - 1) % state.totalSessionDots) + 1;
+  }
+
+  function ensureAudio() {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    if (!audioContext) audioContext = new AC();
+    if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
+    return audioContext;
+  }
+
+  function beep(freq, start, length, volume=.065) {
+    const ac = ensureAudio();
+    if (!ac) return;
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.type = 'square';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(.0001, start);
+    gain.gain.exponentialRampToValueAtTime(volume, start + .012);
+    gain.gain.exponentialRampToValueAtTime(.0001, start + length);
+    osc.connect(gain);
+    gain.connect(ac.destination);
+    osc.start(start);
+    osc.stop(start + length + .03);
+  }
+
+  function alarm() {
+    const ac = ensureAudio();
+    if (!ac) return;
+    const t = ac.currentTime + .04;
+    beep(880, t, .09);
+    beep(660, t + .12, .09);
+    beep(1040, t + .25, .12);
+    beep(520, t + .42, .24);
+  }
+
+  function stopTicker() {
+    if (ticker) {
+      clearInterval(ticker);
+      ticker = null;
+    }
+  }
+
+  function startTicker() {
+    stopTicker();
+    ticker = setInterval(tick, 200);
+  }
+
+  function start() {
+    ensureAudio();
+    if (state.running) return;
+    if (state.remainingMs <= 0) state.remainingMs = duration();
+    state.running = true;
+    state.endAt = Date.now() + state.remainingMs;
+    nativeSchedule(state.endAt, state.mode);
+    startTicker();
+    render();
+  }
+
+  function pause() {
+    if (!state.running) return;
+    state.remainingMs = Math.max(0, state.endAt - Date.now());
+    state.running = false;
+    state.endAt = null;
+    nativeCancel();
+    stopTicker();
+    render();
+  }
+
+  function reset() {
+    state.running = false;
+    state.endAt = null;
+    nativeCancel();
+    stopTicker();
+    state.remainingMs = duration();
+    render();
+  }
+
+  function advance(playSound = false) {
+    if (playSound) alarm();
+
+    state.running = false;
+    state.endAt = null;
+    nativeCancel();
+    stopTicker();
+
+    if (state.mode === 'focus') {
+      state.mode = (state.focusNumber % state.focusesBeforeLongBreak === 0) ? 'long' : 'break';
+    } else {
+      state.mode = 'focus';
+      state.focusNumber += 1;
+    }
+
+    state.remainingMs = duration();
+    render();
+  }
+
+  function tick() {
+    if (!state.running) return;
+
+    state.remainingMs = Math.max(0, state.endAt - Date.now());
+
+    if (state.remainingMs <= 0) {
+      advance(true);
+      return;
+    }
+
+    render();
+  }
+
+  function renderProgress(p) {
+    const count = 16;
+    const lit = Math.round(p * count);
+
+    progressEl.innerHTML = '';
+    for (let i = 0; i < count; i++) {
+      const d = document.createElement('div');
+      d.className = 'pseg' + (i < lit ? ' on' : '');
+      progressEl.appendChild(d);
+    }
+
+    const sn = sessionNumber();
+    $('cycleValue').textContent = sn + '/4';
+    $('percentValue').textContent = Math.round(p * 100) + '%';
+
+    sessionDots.innerHTML = '';
+    for (let i = 1; i <= state.totalSessionDots; i++) {
+      const dot = document.createElement('div');
+      dot.className = 'sdot' + (i === sn ? ' on' : '');
+      sessionDots.appendChild(dot);
+    }
+    $('sessionNum').textContent = sn + ' / ' + state.totalSessionDots;
+  }
+
+  function renderReactor(p) {
+    const isFocus = state.mode === 'focus';
+
+    /* Focus: rises from 620 to 892 C.
+       Break: cools from 430 toward 330 C. */
+    const temp = isFocus
+      ? Math.round(620 + 272 * p)
+      : Math.round(430 - 100 * p);
+
+    temperature.textContent = temp + '°C';
+
+    const filledSegments = isFocus
+      ? Math.max(1, 1 + Math.round(4 * p))
+      : Math.max(1, 3 - Math.round(2 * p));
+
+    gaugeSegments.forEach((segment, i) => {
+      segment.classList.toggle('on', i < filledSegments);
+    });
+
+    /* Core becomes progressively brighter while focusing.
+       During break it is blue and cools down. */
+    const opacity = isFo
