@@ -1,0 +1,272 @@
+ar(--break); }
+
+/* Next mode panel */
+.next-mask {
+  left:79.7%;
+  top:50.3%;
+  width:16.7%;
+  height:12.5%;
+  background:rgba(3,13,5,.965);
+}
+.reactor-widget.break .next-mask {
+  background:rgba(3,8,14,.965);
+}
+.next-label {
+  position:absolute;
+  z-index:10;
+  left:79.4%;
+  top:50.1%;
+  width:16.9%;
+  text-align:center;
+  color:var(--green);
+  font-size:4.9cqw;
+  line-height:.9;
+}
+.next-time {
+  position:absolute;
+  z-index:10;
+  left:79.0%;
+  top:54.7%;
+  width:17.8%;
+  text-align:center;
+  color:var(--green);
+  font-size:9.8cqw;
+  line-height:.85;
+  text-shadow:0 0 7px currentColor;
+}
+.reactor-widget.break .next-label,
+.reactor-widget.break .next-time {
+  color:var(--break-soft);
+}
+
+/* progress */
+.progress-mask {
+  left:4.3%;
+  top:77.2%;
+  width:60.2%;
+  height:4.1%;
+}
+.progress {
+  position:absolute;
+  z-index:10;
+  left:4.5%;
+  top:77.25%;
+  width:51.8%;
+  height:3.1%;
+  display:grid;
+  grid-template-columns:repeat(16,1fr);
+  gap:.38cqw;
+}
+.pseg {
+  border:.18cqw solid var(--focus-dim);
+  background:#09090b;
+}
+.pseg.on {
+  border-color:var(--focus);
+  background:var(--focus);
+  box-shadow:0 0 5px var(--focus);
+}
+.reactor-widget.break .pseg {
+  border-color:var(--break-dim);
+}
+.reactor-widget.break .pseg.on {
+  border-color:var(--break);
+  background:var(--break);
+  box-shadow:0 0 5px var(--break);
+}
+.progress-values {
+  position:absolute;
+  z-index:10;
+  left:57.5%;
+  top:76.3%;
+  width:5.3%;
+  color:var(--focus-soft);
+  text-align:center;
+  font-size:3.3cqw;
+  line-height:1.15;
+}
+.reactor-widget.break .progress-values { color:var(--break-soft); }
+
+/* session */
+.session-mask {
+  left:68.4%;
+  top:76.25%;
+  width:18.9%;
+  height:5.9%;
+}
+.session {
+  position:absolute;
+  z-index:10;
+  left:68.3%;
+  top:76.1%;
+  width:18.9%;
+  color:var(--focus-soft);
+  text-align:center;
+}
+.session-num {
+  font-size:3.5cqw;
+  line-height:1;
+}
+.session-dots {
+  margin-top:.6cqw;
+  display:flex;
+  gap:1.1cqw;
+  justify-content:center;
+}
+.sdot {
+  width:2.1cqw;
+  height:1.2cqw;
+  border:.25cqw solid var(--focus-dim);
+}
+.sdot.on {
+  border-color:var(--focus);
+  background:var(--focus);
+  box-shadow:0 0 5px var(--focus);
+}
+.reactor-widget.break .session { color:var(--break-soft); }
+.reactor-widget.break .sdot { border-color:var(--break-dim); }
+.reactor-widget.break .sdot.on {
+  border-color:var(--break);
+  background:var(--break);
+  box-shadow:0 0 5px var(--break);
+}
+
+/* Real functional controls exactly over bottom three panels */
+.control {
+  position:absolute;
+  z-index:30;
+  top:84.3%;
+  height:6.8%;
+  border:.25cqw solid currentColor;
+  background:rgba(0,0,0,.88);
+  font-family:'VT323', monospace;
+  font-size:4.6cqw;
+  line-height:1;
+  cursor:pointer;
+  outline:none;
+}
+.control:active { transform:translateY(1px); }
+.control.start {
+  left:3.8%;
+  width:29.8%;
+  color:var(--focus);
+}
+.control.pause {
+  left:36.6%;
+  width:26.2%;
+  color:#bbb;
+  border-color:#888;
+}
+.control.next {
+  left:66.4%;
+  width:30.0%;
+  color:var(--green);
+  border-color:var(--green);
+}
+.reactor-widget.break .control.start {
+  color:var(--break);
+  border-color:var(--break);
+}
+.reactor-widget.break .control.next {
+  color:var(--break-soft);
+  border-color:var(--break);
+}
+
+/* reset button, intentionally tiny so visual composition stays the same */
+.reset {
+  position:absolute;
+  z-index:31;
+  right:1.8%;
+  bottom:1.2%;
+  border:1px solid currentColor;
+  background:#070709;
+  color:var(--focus-soft);
+  font-family:'VT323', monospace;
+  font-size:2.5cqw;
+  line-height:1;
+  padding:.25cqw .55cqw;
+  cursor:pointer;
+}
+.reactor-widget.break .reset { color:var(--break-soft); }
+
+/* Last-minute pulse */
+.critical .timer,
+.critical .alert-main {
+  animation:criticalBlink .65s steps(1,end) infinite;
+}
+@keyframes criticalBlink {
+  0%,48% { opacity:1; }
+  49%,100% { opacity:.35; }
+}
+</style>
+</head>
+
+<body>
+<main class="reactor-widget" id="widget">
+  <div class="reference"></div>
+
+  <div class="core-glow" id="coreGlow"></div>
+
+  <div class="mask gauge-mask"></div>
+  <div class="gauge" id="gauge">
+    <div class="gauge-seg"></div>
+    <div class="gauge-seg"></div>
+    <div class="gauge-seg"></div>
+    <div class="gauge-seg"></div>
+    <div class="gauge-seg"></div>
+  </div>
+
+  <div class="mask temp-number-mask"></div>
+  <div class="temp-number" id="temperature">620°C</div>
+
+  <div class="mask alert-mask"></div>
+  <div class="alert-main" id="alertMain">REACTOR CORE ONLINE</div>
+  <div class="alert-sub" id="alertSub">FOCUS CYCLE IN PROGRESS</div>
+
+  <div class="mask timer-mask"></div>
+  <div class="timer-mode" id="modeText">FOCUS MODE</div>
+  <div class="timer" id="timer">50:00</div>
+  <div class="timer-sub" id="timerSub">STAY ON TASK</div>
+
+  <div class="mask status-values-mask"></div>
+  <div class="status-values">
+    <div id="pressure">72%</div>
+    <div id="coolant">68%</div>
+    <div id="fuel">STABLE</div>
+    <div>NOMINAL</div>
+    <div id="systems">STANDBY</div>
+  </div>
+
+  <div class="mask status-msg-mask"></div>
+  <div class="status-msg" id="statusMsg">FOCUS DRIVES<br>A BRIGHTER TOMORROW.</div>
+
+  <div class="mask next-mask"></div>
+  <div class="next-label" id="nextLabel">BREAK</div>
+  <div class="next-time" id="nextTime">10:00</div>
+
+  <div class="mask progress-mask"></div>
+  <div class="progress" id="progress"></div>
+  <div class="progress-values">
+    <div id="cycleValue">1/4</div>
+    <div id="percentValue">0%</div>
+  </div>
+
+  <div class="mask session-mask"></div>
+  <div class="session">
+    <div class="session-num" id="sessionNum">1 / 4</div>
+    <div class="session-dots" id="sessionDots"></div>
+  </div>
+
+  <button class="control start" id="startButton" type="button">START</button>
+  <button class="control pause" id="pauseButton" type="button">PAUSE</button>
+  <button class="control next" id="nextButton" type="button">NEXT / BREAK</button>
+  <button class="reset" id="resetButton" type="button">RESET</button>
+
+  <div class="scanlines"></div>
+</main>
+
+<script>
+(() => {
+  'use strict';
+
+  const STORAGE_KEY = 'reactor_pomodoro_func
