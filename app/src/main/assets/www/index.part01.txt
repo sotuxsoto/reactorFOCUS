@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Pomodoro Reactor — Functional</title>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+:root {
+  --focus:#ff4d57;
+  --focus-soft:#ffbec4;
+  --focus-dim:#6a2229;
+  --break:#62bdff;
+  --break-soft:#d8f2ff;
+  --break-dim:#214e73;
+  --green:#73ff8e;
+  --black:#050507;
+}
+
+* { box-sizing:border-box; }
+html, body {
+  margin:0;
+  min-height:100%;
+  background:#000;
+}
+body {
+  padding:8px;
+  min-height:100vh;
+  display:flex;
+  justify-content:center;
+  font-family:'VT323', monospace;
+}
+
+.reactor-widget {
+  width:min(96vw, 720px);
+  aspect-ratio:1/1;
+  position:relative;
+  overflow:hidden;
+  container-type:inline-size;
+  background:#000;
+  border:2px solid var(--focus);
+  box-shadow:0 0 16px rgba(255,77,87,.28);
+  user-select:none;
+}
+.reactor-widget.break {
+  border-color:var(--break);
+  box-shadow:0 0 18px rgba(98,189,255,.32);
+}
+
+.reference {
+  position:absolute;
+  inset:0;
+  background-image:url("reactor_reference.webp");
+  background-size:100% 100%;
+  background-repeat:no-repeat;
+  image-rendering:pixelated;
+  image-rendering:crisp-edges;
+}
+.reactor-widget.break .reference {
+  filter:grayscale(1) sepia(1) hue-rotate(155deg) saturate(7) brightness(.92) contrast(1.08);
+}
+
+/* CRT texture */
+.scanlines {
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  z-index:50;
+  opacity:.44;
+  background:
+    repeating-linear-gradient(to bottom,
+      rgba(255,255,255,.035) 0,
+      rgba(255,255,255,.035) 1px,
+      transparent 1px,
+      transparent 4px),
+    radial-gradient(circle at 50% 45%, transparent 42%, rgba(0,0,0,.24) 100%);
+  mix-blend-mode:screen;
+}
+
+/* --------- DYNAMIC REACTOR --------- */
+.core-glow {
+  position:absolute;
+  z-index:5;
+  left:24.35%;
+  top:22.2%;
+  width:13.2%;
+  height:15.45%;
+  pointer-events:none;
+  opacity:.42;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 10%,
+      rgba(255,244,246,.92) 10% 20%,
+      transparent 20% 29%
+    );
+  filter:blur(.15px);
+  box-shadow:
+    0 0 8px rgba(255,90,110,.35),
+    0 0 18px rgba(255,75,95,.28);
+}
+.reactor-widget.break .core-glow {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 10%,
+      rgba(240,251,255,.96) 10% 20%,
+      transparent 20% 29%
+    );
+  box-shadow:
+    0 0 8px rgba(110,205,255,.45),
+    0 0 20px rgba(80,175,255,.36);
+}
+
+/* Mask only the old dynamic values from the image */
+.mask {
+  position:absolute;
+  z-index:8;
+  background:rgba(4,4,6,.96);
+}
+.reactor-widget.break .mask {
+  background:rgba(3,9,14,.96);
+}
+
+/* Temperature */
+.temp-number-mask { left:49.1%; top:33.0%; width:12.5%; height:4.2%; }
+.temp-number {
+  position:absolute;
+  z-index:10;
+  left:48.8%;
+  top:32.7%;
+  width:13.6%;
+  color:var(--focus);
+  font-size:5.8cqw;
+  line-height:1;
+  text-align:center;
+  text-shadow:0 0 8px currentColor;
+}
+.reactor-widget.break .temp-number { color:var(--break); }
+
+.gauge-mask {
+  left:49.45%;
+  top:12.4%;
+  width:4.35%;
+  height:20.9%;
+  background:#070708;
+}
+.gauge {
+  position:absolute;
+  z-index:10;
+  left:49.48%;
+  top:12.55%;
+  width:4.2%;
+  height:20.5%;
+  padding:.45cqw;
+  display:flex;
+  flex-direction:column-reverse;
+  gap:.35cqw;
+  border:.30cqw solid var(--focus);
+}
+.reactor-widget.break .gauge { border-color:var(--break); }
+.gauge-seg {
+  flex:1;
+  min-height:0;
+  border:.18cqw solid var(--focus);
+  background:rgba(255,77,87,.09);
+}
+.reactor-widget.break .gauge-seg {
+  border-color:var(--break);
+  background:rgba(98,189,255,.08);
+}
+.gauge-seg.on {
+  background:var(--focus);
+  box-shadow:0 0 7px var(--focus);
+}
+.reactor-widget.break .gauge-seg.on {
+  background:var(--break);
+  box-shadow:0 0 7px var(--break);
+}
+
+/* Alert status */
+.alert-mask { left:17.2%; top:39.45%; width:43.8%; height:6.6%; }
+.alert-main {
+  position:absolute;
+  z-index:10;
+  left:18%;
+  top:39.5%;
+  width:42.5%;
+  text-align:center;
+  color:var(--focus);
+  font-size:4.8cqw;
+  line-height:.82;
+  text-shadow:0 0 6px currentColor;
+}
+.alert-sub {
+  position:absolute;
+  z-index:10;
+  left:18%;
+  top:43.05%;
+  width:42.5%;
+  text-align:center;
+  color:var(--focus-soft);
+  font-size:3.3cqw;
+  line-height:.9;
+}
+.reactor-widget.break .alert-main { color:var(--break); }
+.reactor-widget.break .alert-sub { color:var(--break-soft); }
+
+/* Big timer block */
+.timer-mask {
+  left:5.4%;
+  top:48.25%;
+  width:57.5%;
+  height:21.9%;
+  background:rgba(4,4,6,.985);
+}
+.timer-mode {
+  position:absolute;
+  z-index:10;
+  left:12%;
+  top:48.7%;
+  width:44%;
+  text-align:center;
+  color:var(--focus);
+  font-size:6.4cqw;
+  line-height:.86;
+  text-shadow:0 0 7px currentColor;
+}
+.timer {
+  position:absolute;
+  z-index:10;
+  left:7%;
+  top:54.0%;
+  width:54%;
+  text-align:center;
+  color:var(--focus);
+  font-size:18.5cqw;
+  line-height:.78;
+  letter-spacing:.01em;
+  text-shadow:0 0 7px currentColor,0 0 15px currentColor;
+  font-variant-numeric:tabular-nums;
+}
+.timer-sub {
+  position:absolute;
+  z-index:10;
+  left:13%;
+  top:66.2%;
+  width:42%;
+  text-align:center;
+  color:var(--focus);
+  font-size:4.6cqw;
+  line-height:.9;
+}
+.reactor-widget.break .timer-mode,
+.reactor-widget.break .timer,
+.reactor-widget.break .timer-sub { color:var(--break); }
+
+/* right status dynamic numbers */
+.status-values-mask {
+  left:84.8%;
+  top:12.8%;
+  width:12.1%;
+  height:16.1%;
+  background:rgba(4,4,6,.975);
+}
+.status-values {
+  position:absolute;
+  z-index:10;
+  left:84.4%;
+  top:12.85%;
+  width:12.1%;
+  color:var(--focus-soft);
+  text-align:right;
+  font-size:2.8cqw;
+  line-height:1.46;
+}
+.reactor-widget.break .status-values { color:var(--break-soft); }
+
+/* right message */
+.status-msg-mask { left:67.0%; top:30.6%; width:29%; height:7.3%; }
+.status-msg {
+  position:absolute;
+  z-index:10;
+  left:68%;
+  top:30.7%;
+  width:27.5%;
+  color:var(--focus);
+  font-size:3.25cqw;
+  line-height:1.05;
+}
+.reactor-widget.break .status-msg { color:v
