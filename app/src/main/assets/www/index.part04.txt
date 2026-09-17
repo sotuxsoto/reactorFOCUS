@@ -1,0 +1,122 @@
+cus ? (.30 + p * .70) : (.48 - p * .20);
+    const glow1 = isFocus ? (8 + p * 12) : (13 - p * 4);
+    const glow2 = isFocus ? (18 + p * 28) : (25 - p * 7);
+
+    coreGlow.style.opacity = String(opacity);
+    if (isFocus) {
+      coreGlow.style.boxShadow =
+        '0 0 ' + glow1 + 'px rgba(255,90,110,.48), 0 0 ' +
+        glow2 + 'px rgba(255,72,92,.42)';
+    } else {
+      coreGlow.style.boxShadow =
+        '0 0 ' + glow1 + 'px rgba(110,205,255,.50), 0 0 ' +
+        glow2 + 'px rgba(70,170,255,.45)';
+    }
+  }
+
+  function renderText(p) {
+    const isFocus = state.mode === 'focus';
+    const isLong = state.mode === 'long';
+
+    timer.textContent = formatTime(state.remainingMs);
+
+    if (isFocus) {
+      $('modeText').textContent = 'FOCUS MODE';
+      $('timerSub').textContent = 'STAY ON TASK';
+      $('alertMain').textContent = 'REACTOR CORE ONLINE';
+      $('alertSub').textContent = 'FOCUS CYCLE IN PROGRESS';
+      $('statusMsg').innerHTML = 'FOCUS DRIVES<br>A BRIGHTER TOMORROW.';
+      $('fuel').textContent = state.remainingMs <= 60_000 ? 'CRITICAL' : 'STABLE';
+      $('systems').textContent = state.running ? 'ONLINE' : 'STANDBY';
+      $('nextLabel').textContent = 'BREAK';
+      $('nextTime').textContent = formatTime(state.breakMinutes * 60_000);
+    } else {
+      $('modeText').textContent = isLong ? 'LONG BREAK' : 'BREAK MODE';
+      $('timerSub').textContent = isLong ? 'DEEP RECOVERY' : 'COOL DOWN';
+      $('alertMain').textContent = isLong ? 'EXTENDED COOLING ACTIVE' : 'COOLING PHASE ACTIVE';
+      $('alertSub').textContent = 'SYSTEM RECOVERY IN PROGRESS';
+      $('statusMsg').innerHTML = isLong ? 'EXTENDED REST<br>PREVENTS OVERLOAD.' : 'REST RESTORES<br>COGNITIVE POWER.';
+      $('fuel').textContent = isLong ? 'IDLE' : 'RESTORE';
+      $('systems').textContent = 'COOLING';
+      $('nextLabel').textContent = 'FOCUS';
+      $('nextTime').textContent = formatTime(state.focusMinutes * 60_000);
+    }
+
+    const pressure = isFocus
+      ? Math.round(58 + 27 * p)
+      : Math.round(48 - 8 * p);
+    const coolant = isFocus
+      ? Math.round(82 - 18 * p)
+      : Math.round(78 + 12 * p);
+
+    $('pressure').textContent = pressure + '%';
+    $('coolant').textContent = coolant + '%';
+
+    $('startButton').textContent = state.running ? 'RUNNING' : 'START / RESUME';
+    $('pauseButton').textContent = 'PAUSE';
+    $('nextButton').textContent = isFocus ? 'BREAK / NEXT' : 'FOCUS / NEXT';
+
+    widget.classList.toggle('critical', isFocus && state.running && state.remainingMs <= 60_000);
+  }
+
+  function render() {
+    const p = fraction();
+    const isBreak = state.mode !== 'focus';
+
+    widget.classList.toggle('break', isBreak);
+
+    renderReactor(p);
+    renderProgress(p);
+    renderText(p);
+
+    document.title = formatTime(state.remainingMs) + ' · ' +
+      (state.mode === 'focus' ? 'FOCUS' : 'BREAK');
+
+    saveState();
+  }
+
+  $('startButton').addEventListener('click', start);
+  $('pauseButton').addEventListener('click', pause);
+  $('nextButton').addEventListener('click', () => advance(false));
+  $('resetButton').addEventListener('click', reset);
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && state.running && state.endAt) {
+      state.remainingMs = Math.max(0, state.endAt - Date.now());
+      if (state.remainingMs <= 0) advance(true);
+      else render();
+    }
+  });
+
+
+  window.addEventListener('focus', () => {
+    if (state.running && state.endAt) {
+      state.remainingMs = Math.max(0, state.endAt - Date.now());
+      if (state.remainingMs <= 0) advance(true);
+      else render();
+    }
+  });
+
+  /* Restore a real countdown after the WebView/app resumes. */
+  if (state.running && state.endAt) {
+    const left = state.endAt - Date.now();
+    if (left > 0) {
+      state.remainingMs = left;
+      nativeSchedule(state.endAt, state.mode);
+      startTicker();
+    } else {
+      state.running = false;
+      state.endAt = null;
+      state.remainingMs = duration();
+    }
+  }
+
+  /* Wait for VT323 when available; functionality does not depend on it. */
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.finally(render);
+  }
+  render();
+})();
+</script>
+</body>
+</html>
