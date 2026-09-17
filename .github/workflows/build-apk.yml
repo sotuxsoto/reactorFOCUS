@@ -1,4 +1,4 @@
-name: Build Reactor Focus APK
+name: Build Reactor Focus Android
 
 on:
   push:
@@ -25,21 +25,33 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Show Android SDK
+      - name: Install Android 16 SDK
+        shell: bash
         run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          ls -la "$ANDROID_HOME/platforms" || true
-          ls -la "$ANDROID_HOME/build-tools" || true
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"
 
-      - name: Build APK
+      - name: Build debug APK
         run: gradle :app:assembleDebug --stacktrace
 
-      - name: Prepare APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk ReactorFocus.apk
+      - name: Build release Android App Bundle
+        run: gradle :app:bundleRelease --stacktrace
+
+      - name: Prepare artifacts
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk ReactorFocus.apk
+          cp app/build/outputs/bundle/release/app-release.aab ReactorFocus-unsigned.aab
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: ReactorFocus-APK
           path: ReactorFocus.apk
+          if-no-files-found: error
+
+      - name: Upload unsigned AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReactorFocus-AAB-Unsigned
+          path: ReactorFocus-unsigned.aab
           if-no-files-found: error
