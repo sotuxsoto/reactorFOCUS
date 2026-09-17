@@ -25,3 +25,16 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 }
+
+tasks.register('assembleWebIndex') {
+    doLast {
+        def dir = file('src/main/assets/www')
+        def out = new File(dir, 'index.html')
+        out.text = ''
+        ['index.part01.txt','index.part02.txt','index.part03.txt','index.part04.txt'].each { name ->
+            out << new File(dir, name).getText('UTF-8')
+        }
+    }
+}
+
+preBuild.dependsOn assembleWebIndex
